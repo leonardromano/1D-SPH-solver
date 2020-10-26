@@ -23,7 +23,7 @@ def calculate_forces(particles):
             particle.acceleration_viscosity -= neighbor.mass * \
                 viscosity_tensor(particle, neighbor, distance, vij)* \
                 (kernel(distance, particle.smoothingLength, Order, True) + \
-                 kernel(-distance, neighbor.smoothingLength, Order, True))/2
+                 kernel(distance, neighbor.smoothingLength, Order, True))/2
             particle.acceleration_pressure -= neighbor.mass*\
                 (particle.pressure/particle.density**2 + \
                  neighbor.pressure/neighbor.density**2)*\
@@ -38,7 +38,7 @@ def calculate_entropy_change(particles):
                 particle.density**(AdiabaticIndex - 1)*neighbor.mass * \
                 viscosity_tensor(particle, neighbor, distance, vij)*vij* \
                 (kernel(distance, particle.smoothingLength, Order, True) + \
-                 kernel(-distance, neighbor.smoothingLength, Order, True))/2
+                 kernel(distance, neighbor.smoothingLength, Order, True))/2
 
 def viscosity_tensor(particle1, particle2, distance, vij):
     "returns the viscosity tensor for two particles"

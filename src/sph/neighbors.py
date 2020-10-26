@@ -82,7 +82,7 @@ def mirror_particle(particle, neighbor, ahead):
         vij = particle.velocity - velocity
     mirrorParticle = Particle(2*particle.position - neighbor.position, \
                               velocity, neighbor.entropy, neighbor.index)
-    mirrorParticle.density = K*Mp/2*neighbor.smoothingLength
+    mirrorParticle.density = K*Mp/2/neighbor.smoothingLength
     mirrorParticle.update_pressure(ahead)
     mirrorParticle.update_soundspeed()
     return [mirrorParticle, particle.position - mirrorParticle.position, vij]

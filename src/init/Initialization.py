@@ -53,7 +53,7 @@ def get_initial_positions():
     initialPositions = np.zeros(NumberOfParticles)
     if ICSpecifier == "shocktube":   #initialize positions for shocktube ICs
         for i in range(NumberOfParticles):
-            if i <= 0.8*NumberOfParticles:
+            if i <= 0.8*NumberOfParticles-1:
                 dx = 1/(1 + 0.8*NumberOfParticles)
                 initialPositions[i] += (1/2 + i)*dx - 1
             else:
@@ -78,10 +78,10 @@ def get_initial_entropies():
     initialEntropies = np.zeros(NumberOfParticles)
     if ICSpecifier == "shocktube":
         for i in range(NumberOfParticles):
-            if i<=0.8*NumberOfParticles:
-                initialEntropies[i] += 1.367
+            if i<=0.8*NumberOfParticles-1:
+                initialEntropies[i] += 1.352
             else:
-                initialEntropies[i] += 1.709
+                initialEntropies[i] += 1.656
     else:
         print("The specified initial conditions cannot be found.")
         exit()
