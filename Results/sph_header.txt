@@ -1,0 +1,10 @@
+Number of particles:256
+Final time:1
+Mass unit:0.00390625
+Adiabatic index:1.4
+Viscosity:1
+Viscosity Softening:0.01
+Average number of Neighbors:4
+Courant parameter:0.3
+Left boundary:-1
+Right boundary:1

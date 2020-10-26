@@ -38,8 +38,8 @@ pressure as well as number of neighbors aren't used for the ICs and thus can
 be ignored. If one reads in ICs like this one should make sure that all physical
 parameters like total mass, adiabatic index etc. are consistent.
 """
-ICSpecifier = "from_file"                       
-ICfile      = "../ICs/sph_16.txt"               #/path/to/file.txt
+ICSpecifier = "shocktube"                       #currently "shocktube" or "from_file"
+ICfile      = "../ICs/initial_condition.txt"    #/path/to/file.txt
 
 #SPH parameters
 AdiabaticIndex = 1.4                            #adiabatic Index gamma P~rho^gamma

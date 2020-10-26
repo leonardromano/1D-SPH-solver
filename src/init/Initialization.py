@@ -73,7 +73,7 @@ def get_initial_velocities():
         print("The specified initial conditions cannot be found.")
         exit()
 
-def get_initial_entropies(initialPositions):
+def get_initial_entropies():
     "returns the initial entropy functions"
     initialEntropies = np.zeros(NumberOfParticles)
     if ICSpecifier == "shocktube":
