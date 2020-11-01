@@ -7,12 +7,12 @@ Created on Wed Oct  7 15:16:08 2020
 """
 from Constants import Mp, AdiabaticIndex, NumberOfParticles, FinalTime, \
     Viscosity, ViscositySoftening, K, CourantParameter, LeftBoundary, \
-    RightBoundary
+    RightBoundary, Output
 from sys import exit
 
 def write_data(particles, label, Timestamp):
     "writes all the particle data in a text file. Eventually will be replaced by hdf5."
-    f = open("Results/sph_%d.txt"%(label), "w")
+    f = open("%s/sph_%d.txt"%(Output,label), "w")
     if f:
         for particle in particles:
             f.write("%d %g %g %g %g %g %g %d\n" \
@@ -26,7 +26,7 @@ def write_data(particles, label, Timestamp):
 
 def write_header():
     "writes some header information in a text file."
-    f = open("Results/sph_header.txt", "w")
+    f = open("%s/sph_header.txt"%(Output), "w")
     if f:
         f.write("Number of particles:%d\nFinal time:%g\nMass unit:%g\n\
 Adiabatic index:%g\nViscosity:%g\nViscosity Softening:%g\n\

@@ -37,7 +37,7 @@ def main():
         #cycle integration step over all timebins
         while j<1:
             #first kick all active particles by the current active timestep
-            Kick(timeBins[activeTimeBin], Dt/2**(activeTimeBin+1))
+            Kick(timeBins[activeTimeBin])
             #then synchronize all particles with the next synchronization point
             Drift(timeBins[0], Dt/2**lowestPopulatedTimeBin)
             
@@ -51,7 +51,7 @@ def main():
             force_step(timeBins[activeTimeBin])
             
             #kick the active particles by the current active timestep
-            Kick(timeBins[activeTimeBin], Dt/2**(activeTimeBin+1))
+            Kick(timeBins[activeTimeBin])
             
             #determine the new smallest timestep
             lowestPopulatedTimeBin = assign_timestep_classes(timeBins, activeTimeBin)

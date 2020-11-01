@@ -27,7 +27,7 @@ def calculate_forces(particles):
             particle.acceleration_pressure -= neighbor.mass*\
                 (particle.pressure/particle.density**2 + \
                  neighbor.pressure/neighbor.density**2)*\
-                kernel(distance,particle.smoothingLength,Order,True)
+                kernel(distance, particle.smoothingLength, Order, True)
 
 def calculate_entropy_change(particles):
     "Computes the rate of entropy change for all particles"

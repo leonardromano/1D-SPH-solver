@@ -9,14 +9,6 @@ from Constants import Dt, Ntimebins
 from numpy import log2
 from sys import exit
 
-def get_min_timestep(particles):
-    minTimestep = Dt
-    for particle in particles:
-        particle.updateCourantTimestep()
-        if particle.courantTimestep<minTimestep:
-            minTimestep = particle.courantTimestep
-    return minTimestep
-
 def assign_timestep_classes(timeBins, currentLevel):
     """
     For all active particles check the timestep criterion and populate 
@@ -32,6 +24,7 @@ def assign_timestep_classes(timeBins, currentLevel):
         particle.update_courant_timestep()
         if particle.courantTimestep<Dt/2**(currentLevel): #need to reduce timestep
             k = int(log2(Dt/particle.courantTimestep)) #determine the new timebin
+            particle.timeBin = k
             if k<=Ntimebins: #make sure the new timebin exists
                 #need to add particle to all bins with timestep >= necessary timestep
                 for i in range(currentLevel+1, k):

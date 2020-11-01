@@ -17,11 +17,11 @@ LeftBoundary = -1.                              #Left spatial domain boundary
 RightBoundary = 1.                              #Right spatial domain boundary  
 TotalSideLength = (RightBoundary-LeftBoundary)  #Total size of spatial domain
 InitialTime = 0                                 #Starting Time
-FinalTime = 1.                                  #Final Time
+FinalTime = 1                                  #Final Time
 NumberOfGridCells = 32                          #Number of grid cells for neighbor search
 BinWidth = TotalSideLength/NumberOfGridCells    #Spatial extent of grid cells
 NumberOfTimesteps = 128                         #Time refinement
-NumberOfParticles = 256                         #Particle refinement
+NumberOfParticles = 1024                        #Particle refinement
 Mp = TotalMass/NumberOfParticles                #Particle Mass
 Dt = (FinalTime - InitialTime)/NumberOfTimesteps#Maximum Timestep
 Ntimebins = 16                                  #Maximum depth of timestep hierarchy
@@ -40,16 +40,18 @@ parameters like total mass, adiabatic index etc. are consistent.
 """
 ICSpecifier = "shocktube"                       #currently "shocktube" or "from_file"
 ICfile      = "../ICs/initial_condition.txt"    #/path/to/file.txt
+Output      = "../Results"                      #path to outputdirectory
 
 #SPH parameters
 AdiabaticIndex = 1.4                            #adiabatic Index gamma P~rho^gamma
 Order = "cubic"                                 #SPH Kernel function new Kernel options can be defined in Kernel.py
 Viscosity = 1                                   #Viscosity Parameter \alpha
 ViscositySoftening = 0.01                       #Softening parameter to prevent blow up of viscosity force
-K = 4.                                          #Mean number of neighbors
-Dh = K/16/(1+0.8*NumberOfParticles)             #Stepsize for smoothing length ~smaller than smallest particle spacing in IC
+K = 51.                                         #Mean number of neighbors
+Dh = (TotalSideLength/NumberOfParticles)*(K/2)  #Maximum stepsize for smoothing length ~smaller than smallest particle spacing in IC
 Hmin = Dh                                       #Minimum smoothing length
 Hmax = TotalSideLength                          #Maximum smoothing length
+DesRes = 0.01                                   #Desired resolution for smoothing length calculation
 CourantParameter = 0.3                          #Courant parameter
 
 #Output Parameter

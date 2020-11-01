@@ -6,8 +6,9 @@ Created on Wed Oct  7 19:13:02 2020
 @author: leonard
 """
 from Constants import Dh, K, Order, NumberOfGridCells, Hmax, BinWidth, \
-    LeftBoundary, RightBoundary
+    LeftBoundary, RightBoundary, DesRes
 from src.sph.Kernel import kernel 
+from numpy import sign
 
 def set_smoothing_lengths(grid, particles):
     "For each particle find the smoothing length by minimizing the sph functional"
@@ -16,18 +17,34 @@ def set_smoothing_lengths(grid, particles):
 
 def minimize_sph_functional(grid, particle):
     "Iteratively minimizes the sph functional"
-    i=1
-    if sph_functional(grid, particle, Dh)<=0:
-        return Dh
+    h = Dh
+    if abs(sph_functional(grid, particle, h))<DesRes:
+        return h
     else:
+        i=0
         res=1
-        while res>0 and i*Dh<Hmax:
-            res = sph_functional(grid, particle, i*Dh)
-            i+=1
-        if res == 0:
-            return i*Dh
+        resprev = 1
+        hprev = h
+        while abs(res)>DesRes and h<Hmax:
+            #equal sign need to increment or decrement
+            if sign(res) == sign(resprev):
+                hprev = h
+                h += sign(res)*Dh/2**i
+                if h <= 0:
+                    h = abs(hprev)/2
+                resprev = res
+                res = sph_functional(grid, particle, h)
+            else: #different sign need to reduce steps
+                htemp = h
+                h = (hprev + h)/2
+                hprev = htemp
+                resprev = res
+                res = sph_functional(grid, particle, h)
+                i+=1
+        if h>Hmax:
+            return Hmax
         else:
-            return (i-1)*Dh
+            return h
 
 def get_distance_from_wall(particle):
     "returns the distance from the nearest boundary"
@@ -53,6 +70,6 @@ def sph_functional(grid, particle, hsml):
     #Now add the contribution from all neighbors who are further away 
     #than the neighbor who is closest to the wall
     for [neighbor, distance] in neighbors:
-        if distanceFromWall-distance<minimumDistanceFromWall:
+        if distanceFromWall-distance+10**(-10)<minimumDistanceFromWall:
             y -= hsml*kernel(distance, hsml, Order)
     return y

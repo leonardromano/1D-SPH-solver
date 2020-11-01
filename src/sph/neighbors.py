@@ -60,7 +60,7 @@ def find_neighbors(grid, particles, ahead = False):
             for [neighbor, distance, vij] in listOfNeighbors:
                 neighborDistanceFromWall = get_distance_from_wall(neighbor)
                 if neighborDistanceFromWall>distanceFromWall and \
-                    distanceFromWall<abs(distance)+minimumDistanceFromWall:
+                    distanceFromWall+10**(-10)<abs(distance)+minimumDistanceFromWall:
                     particles[i].neighbors.\
                         append(mirror_particle(particles[i], neighbor, ahead))
             

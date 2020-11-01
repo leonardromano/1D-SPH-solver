@@ -30,6 +30,7 @@ class Particle:
         self.courantTimestep = Dt
         self.neighbors = list()
         self.currentBin = self.get_current_bin()
+        self.timeBin = 0
     
     def get_current_bin(self):
         return int((self.position-LeftBoundary)//BinWidth)

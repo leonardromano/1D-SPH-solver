@@ -10,8 +10,7 @@ from src.sph.neighbors import find_neighbors
 from src.init.Initialization import initialize_grid
 from src.sph.smoothingLengths import set_smoothing_lengths
 
-from Constants import Order
-from src.sph.Kernel import kernel
+from Constants import K, Mp
 
 def calculate_density(particles, ahead = False):
     """
@@ -19,10 +18,7 @@ def calculate_density(particles, ahead = False):
     and then updates pressure and soundspeed
     """
     for particle in particles:
-        particle.density = 0
-        for [neighbor, distance, vij] in particle.neighbors:
-            particle.density += neighbor.mass*\
-                kernel(distance, particle.smoothingLength, Order)
+        particle.density = K*Mp/2/particle.smoothingLength
         particle.update_pressure(ahead)
         particle.update_soundspeed()
 
