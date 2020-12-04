@@ -8,7 +8,6 @@ Created on Tue Oct  6 20:25:36 2020
 
 from src.time_integration.Drift import Kick, Drift
 from src.forces.forceCalculation import force_step
-from src.sph.pressureCalculation import compute_sph_quantities
 import src.init.Initialization as init
 from Constants import NumberOfTimesteps, Dt, StepsBetweenSnapshots, FinalTime
 from src.writing.writing import write_data, write_header
@@ -21,7 +20,7 @@ def main():
     #initialize particles and perform first force calculation
     particles = init.initialize_particles()
     timeBins = init.initialise_time_bins(particles)
-    compute_sph_quantities(particles)
+    init.update_sph_quantities(particles)
     force_step(timeBins[0])
     #assign particles to time bins
     lowestPopulatedTimeBin = assign_timestep_classes(timeBins, 0)
@@ -47,7 +46,7 @@ def main():
             activeTimeBin = get_active_time_bin(j)
             
             #at the new synchronisation point update sph quantities and forces
-            compute_sph_quantities(timeBins[0], True)
+            init.update_sph_quantities(timeBins[0], True)
             force_step(timeBins[activeTimeBin])
             
             #kick the active particles by the current active timestep

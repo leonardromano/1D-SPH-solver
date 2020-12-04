@@ -5,43 +5,36 @@ Created on Wed Oct  7 14:28:41 2020
 
 @author: leonard
 """
-from Constants import Viscosity, Order, AdiabaticIndex, ViscositySoftening
+from Constants import Viscosity, Order, AdiabaticIndex, ViscositySoftening, \
+    FacIntToCoord
 from src.sph.Kernel import kernel
-from numpy import heaviside
+from numpy import heaviside, sign
 
 def force_step(particles):
-    "Calls the functions for force and entropy change calculations"
-    calculate_forces(particles)
-    calculate_entropy_change(particles)
-
-def calculate_forces(particles):
-    "Computes the forces for all particles by summation over all neighbors"
+    "Updates the particles force and rate of entropy change"
     for particle in particles:
-        particle.acceleration_pressure = 0
-        particle.acceleration_viscosity = 0
-        for [neighbor,distance, vij] in particle.neighbors:
-            particle.acceleration_viscosity -= neighbor.mass * \
-                viscosity_tensor(particle, neighbor, distance, vij)* \
-                (kernel(distance, particle.smoothingLength, Order, True) + \
-                 kernel(distance, neighbor.smoothingLength, Order, True))/2
-            particle.acceleration_pressure -= neighbor.mass*\
-                (particle.pressure/particle.density**2 + \
-                 neighbor.pressure/neighbor.density**2)*\
-                kernel(distance, particle.smoothingLength, Order, True)
-
-def calculate_entropy_change(particles):
-    "Computes the rate of entropy change for all particles"
-    for particle in particles:
+        #initialize results
+        particle.acceleration = 0
         particle.entropyChange = 0
-        for [neighbor,distance, vij] in particle.neighbors:
-            particle.entropyChange += (AdiabaticIndex - 1)/2/\
-                particle.density**(AdiabaticIndex - 1)*neighbor.mass * \
-                viscosity_tensor(particle, neighbor, distance, vij)*vij* \
-                (kernel(distance, particle.smoothingLength, Order, True) + \
-                 kernel(distance, neighbor.smoothingLength, Order, True))/2
+        for [neighbor, intDistance, vij] in particle.neighbors:
+            #we will need these multiple times
+            dist = intDistance*FacIntToCoord
+            dkern_i = sign(dist)*kernel(dist, particle.smoothingLength, Order, True)
+            dkern_j = sign(dist)*kernel(dist, neighbor.smoothingLength, Order, True)
+            visc = viscosity_tensor(particle, neighbor, dist, vij)
+            
+            particle.acceleration -= neighbor.mass * visc * \
+                                               (dkern_i + dkern_j)/2
+            particle.entropyChange += neighbor.mass * visc * vij * \
+                                      (dkern_i + dkern_j)/2
+            
+            dkern_i *= particle.dhsmlDensityFactor*particle.pressure/particle.density**2
+            dkern_j *= neighbor.dhsmlDensityFactor*neighbor.pressure/neighbor.density**2
+            particle.acceleration -= neighbor.mass*(dkern_i +dkern_j)
+        particle.entropyChange *= (AdiabaticIndex - 1)/2/particle.density**(AdiabaticIndex - 1)
 
 def viscosity_tensor(particle1, particle2, distance, vij):
-    "returns the viscosity tensor for two particles"
+    "Returns the viscosity tensor for two particles"
     hij = (particle1.smoothingLength + particle2.smoothingLength)/2
     rhoij = (particle1.density + particle2.density)/2
     cij = (particle1.soundspeed + particle2.soundspeed)/2

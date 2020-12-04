@@ -5,6 +5,7 @@ SPH simulation code by Leonard Romano
 """
 from numpy.random import seed
 
+
 """
 This file stores some constant global parameters.
 Specify the parameters of your simulation in this file 
@@ -16,12 +17,13 @@ TotalMass = 1.                                  #Sum of particle masses
 LeftBoundary = -1.                              #Left spatial domain boundary
 RightBoundary = 1.                              #Right spatial domain boundary  
 TotalSideLength = (RightBoundary-LeftBoundary)  #Total size of spatial domain
+FacIntToCoord = TotalSideLength*2**(-32)        #Conversion factor for int32 coords to double coords
 InitialTime = 0                                 #Starting Time
-FinalTime = 1                                  #Final Time
-NumberOfGridCells = 32                          #Number of grid cells for neighbor search
-BinWidth = TotalSideLength/NumberOfGridCells    #Spatial extent of grid cells
+FinalTime = 0.35                                #Final Time
 NumberOfTimesteps = 128                         #Time refinement
-NumberOfParticles = 1024                        #Particle refinement
+NumberOfParticles = 1000                         #Particle refinement
+NumberOfGridCells = 2**6                        #Number of grid cells for neighbor search
+BinWidth = 2**32//NumberOfGridCells              #Spatial extent of grid cells
 Mp = TotalMass/NumberOfParticles                #Particle Mass
 Dt = (FinalTime - InitialTime)/NumberOfTimesteps#Maximum Timestep
 Ntimebins = 16                                  #Maximum depth of timestep hierarchy
@@ -47,12 +49,10 @@ AdiabaticIndex = 1.4                            #adiabatic Index gamma P~rho^gam
 Order = "cubic"                                 #SPH Kernel function new Kernel options can be defined in Kernel.py
 Viscosity = 1                                   #Viscosity Parameter \alpha
 ViscositySoftening = 0.01                       #Softening parameter to prevent blow up of viscosity force
-K = 51.                                         #Mean number of neighbors
-Dh = (TotalSideLength/NumberOfParticles)*(K/2)  #Maximum stepsize for smoothing length ~smaller than smallest particle spacing in IC
-Hmin = Dh                                       #Minimum smoothing length
-Hmax = TotalSideLength                          #Maximum smoothing length
-DesRes = 0.01                                   #Desired resolution for smoothing length calculation
+K = 42                                          #Desired number of neighbors
+DK = 2                                          #Limit how much the actual number of neighbors may deviate from the desired value
 CourantParameter = 0.3                          #Courant parameter
+TimestepLimiter =  0.01                          #Limiter for kinematic timestep
 
 #Output Parameter
 StepsBetweenSnapshots = 8                       #Number of timesteps between Snapshots

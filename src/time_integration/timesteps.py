@@ -5,6 +5,7 @@ Created on Wed Oct 14 12:22:49 2020
 
 @author: leonard
 """
+from math import ceil
 from Constants import Dt, Ntimebins
 from numpy import log2
 from sys import exit
@@ -21,9 +22,9 @@ def assign_timestep_classes(timeBins, currentLevel):
     #run over all active particles
     for particle in timeBins[currentLevel]:
         #make sure each particles courant timestep is up to date
-        particle.update_courant_timestep()
-        if particle.courantTimestep<Dt/2**(currentLevel): #need to reduce timestep
-            k = int(log2(Dt/particle.courantTimestep)) #determine the new timebin
+        particle.update_timestep_criterion()
+        if particle.timestepCriterion < Dt/2**(currentLevel): #need to reduce timestep
+            k = ceil(log2(Dt/particle.timestepCriterion)) #determine the new timebin
             particle.timeBin = k
             if k<=Ntimebins: #make sure the new timebin exists
                 #need to add particle to all bins with timestep >= necessary timestep

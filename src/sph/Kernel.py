@@ -5,7 +5,7 @@ Created on Tue Oct  6 19:47:22 2020
 
 @author: leonard
 """
-import numpy as np
+from numpy import heaviside
 from sys import exit
 """
 This file contains the implementation for the choice and evaluation of 
@@ -19,14 +19,14 @@ the expression.
 def cubic(r, h):
     "cubic Kernel"
     x = r/h
-    return (4/3/h)*(np.heaviside(0.5-x, 1)*(1-6*x**2 + 6*x**3) + \
-                    np.heaviside(1-x, 0)*np.heaviside(x-0.5,0)*2*(1-x)**3)
+    return (4/3/h)*(heaviside(0.5-x, 1)*(1-6*x**2 + 6*x**3) + \
+                    heaviside(1-x, 0)*heaviside(x-0.5,0)*2*(1-x)**3)
 
 def del_cubic(r,h):
     "derivative of cubic Kernel"
     x = r/h
-    return -8/h * (np.heaviside(0.5-x, 1)*(2*x-3*x**2) + \
-                    np.heaviside(1-x, 0)*np.heaviside(x-0.5,0)*(1-x)**2)
+    return -8/h**2 * (heaviside(0.5-x, 1)*(2*x-3*x**2) + \
+                    heaviside(1-x, 0)*heaviside(x-0.5,0)*(1-x)**2)
         
 
 def kernel(r, h, order, derivative = False):
@@ -39,7 +39,7 @@ def kernel(r, h, order, derivative = False):
             exit()
     else:
         try:
-            return np.sign(r)*eval("del_%s(%g,%g)"%(order, abs(r), h))
+            return eval("del_%s(%g,%g)"%(order, abs(r), h))
         except NameError:
             print("del_%s(r, h) is not defined"%(order))
             exit()
