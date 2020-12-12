@@ -7,7 +7,7 @@ Created on Wed Oct  7 15:16:08 2020
 """
 from Constants import Mp, AdiabaticIndex, NumberOfParticles, FinalTime, \
     Viscosity, ViscositySoftening, K, CourantParameter, LeftBoundary, \
-    RightBoundary, Output, FacIntToCoord
+    RightBoundary, Output, FacIntToCoord, BITS_FOR_POSITIONS
 from sys import exit
 
 def write_data(particles, label, Timestamp):
@@ -15,7 +15,7 @@ def write_data(particles, label, Timestamp):
     f = open("%s/sph_%d.txt"%(Output,label), "w")
     if f:
         for particle in particles:
-            position = (particle.position - 2**31)*FacIntToCoord
+            position = (particle.position - 2**(BITS_FOR_POSITIONS -1))*FacIntToCoord
             f.write("%d %g %g %g %g %g %g %d\n" \
                     %(particle.index, position, particle.velocity, \
                       particle.entropy, particle.density, particle.pressure, \

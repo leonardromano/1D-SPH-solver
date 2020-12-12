@@ -9,10 +9,12 @@ Created on Tue Oct  6 20:25:36 2020
 from src.time_integration.Drift import Kick, Drift
 from src.forces.forceCalculation import force_step
 import src.init.Initialization as init
+from src.sph.density import density
 from Constants import NumberOfTimesteps, Dt, StepsBetweenSnapshots, FinalTime
 from src.writing.writing import write_data, write_header
 from src.time_integration.timesteps import assign_timestep_classes, \
     get_active_time_bin
+from src.tree.tree import ngbtree
 
 def main():
     "This function initializes the simulation and contains the main loop"
@@ -20,7 +22,8 @@ def main():
     #initialize particles and perform first force calculation
     particles = init.initialize_particles()
     timeBins = init.initialise_time_bins(particles)
-    init.update_sph_quantities(particles)
+    NgbTree = ngbtree(particles)
+    init.sph_quantities(particles, NgbTree)
     force_step(timeBins[0])
     #assign particles to time bins
     lowestPopulatedTimeBin = assign_timestep_classes(timeBins, 0)
@@ -46,7 +49,8 @@ def main():
             activeTimeBin = get_active_time_bin(j)
             
             #at the new synchronisation point update sph quantities and forces
-            init.update_sph_quantities(timeBins[0], True)
+            NgbTree = ngbtree(timeBins[0])
+            density(timeBins[0], NgbTree, True)
             force_step(timeBins[activeTimeBin])
             
             #kick the active particles by the current active timestep

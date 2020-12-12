@@ -5,14 +5,14 @@ Created on Tue Oct  6 20:15:30 2020
 
 @author: leonard
 """
-from Constants import BinWidth, Mp, AdiabaticIndex, CourantParameter, Dt, \
-                      TimestepLimiter
+from Constants import Mp, AdiabaticIndex, CourantParameter, Dt, \
+                      TimestepLimiter, FacIntToCoord
 from numpy import sqrt
 
 class Particle:
     "A class to store all the properties of a single particle"
     def __init__(self, position, velocity, entropy, index):
-        
+        #dynamic quantities
         self.position = position
         self.velocity = velocity
         self.velocity_ahead = 0
@@ -20,23 +20,19 @@ class Particle:
         self.entropy = entropy
         self.entropy_ahead = 0
         self.entropyChange = 0
+        #constants
         self.mass = Mp
         self.index = index
+        #SPH quantities
         self.smoothingLength = 0
         self.dhsmlDensityFactor = 0
         self.density = 0
         self.pressure = 0
         self.soundspeed = 0
+        #access variables
         self.timestepCriterion = Dt
         self.neighbors = list()
-        self.currentBin = self.get_current_bin()
         self.timeBin = 0
-    
-    def get_current_bin(self):
-        return int(self.position//BinWidth)
-    
-    def update_current_bin(self):
-        self.currentBin = self.get_current_bin()
         
     def update_pressure(self, ahead):
         if ahead == False:
@@ -50,7 +46,7 @@ class Particle:
         else:
             print("pressure = %g\ndensity = %g\nacceleration = \
 %g\nvelocity = %g\nposition = %d"%(self.pressure, self.density, \
-    self.acceleration, self.velocity, self.position*2**(-32)))
+    self.acceleration, self.velocity, self.position * FacIntToCoord))
     
     def update_timestep_criterion(self):
         cmax = 0

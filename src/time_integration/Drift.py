@@ -5,7 +5,7 @@ Created on Tue Oct  6 20:06:22 2020
 
 @author: leonard
 """
-from Constants import FacIntToCoord, Dt
+from Constants import FacIntToCoord, Dt, BITS_FOR_POSITIONS
 
 def Drift(particles, timestep):
     "drifts all particle's positions to the next synchronisation point"
@@ -14,19 +14,21 @@ def Drift(particles, timestep):
         if particle.position < 0:
             particle.position -= 2*particle.position
             particle.velocity -= 2*particle.velocity
-        elif particle.position > int(2**32):
-            particle.position += int(2*(2**32 - particle.position))
+        elif particle.position > int(2**BITS_FOR_POSITIONS):
+            particle.position += int(2*(2**BITS_FOR_POSITIONS - particle.position))
             particle.velocity -= 2*particle.velocity
-        particle.update_current_bin()
 
 def Kick(particles):
     "drifts all particles velocities and entropy functions to the next sync point"
     for particle in particles:
+        tb = particle.timeBin
+        #update velocity
         particle.velocity_ahead = particle.velocity + particle.acceleration*\
-                                  Dt/2**(particle.timeBin)
-        particle.velocity += particle.acceleration*Dt/2**(1+particle.timeBin)
+                                  Dt/2**tb
+        particle.velocity += particle.acceleration*Dt/2**(1+tb)
+        #update entropy
         particle.entropy_ahead = particle.entropy + particle.entropyChange*\
-            Dt/2**(particle.timeBin)
-        particle.entropy += particle.entropyChange*Dt/2**(1+particle.timeBin)
+            Dt/2**tb
+        particle.entropy += particle.entropyChange*Dt/2**(1+tb)
     
 

@@ -5,7 +5,6 @@ Created on Tue Oct  6 19:47:22 2020
 
 @author: leonard
 """
-from numpy import heaviside
 from sys import exit
 """
 This file contains the implementation for the choice and evaluation of 
@@ -16,30 +15,48 @@ the name of the kernel function by 'order' and the name of the derivative by
 the expression.
 """
 
-def cubic(r, h):
+def cubic(x):
     "cubic Kernel"
-    x = r/h
-    return (4/3/h)*(heaviside(0.5-x, 1)*(1-6*x**2 + 6*x**3) + \
-                    heaviside(1-x, 0)*heaviside(x-0.5,0)*2*(1-x)**3)
+    if x < 0.5:
+        return 4/3 *(1-6*x**2 + 6*x**3) 
+    elif x < 1:
+        return 8/3 * (1-x)**3
+    else:
+        return 0
 
-def del_cubic(r,h):
+def del_cubic(x):
     "derivative of cubic Kernel"
-    x = r/h
-    return -8/h**2 * (heaviside(0.5-x, 1)*(2*x-3*x**2) + \
-                    heaviside(1-x, 0)*heaviside(x-0.5,0)*(1-x)**2)
+    if x < 0.5:
+        return -8 * (2 * x - 3 * x**2)
+    elif x < 1:
+        return -8 * (1-x)**2
+    else:
+        return 0
+        
+def Wendland_C2(x):
+    if x < 1:
+        return 5/4 * (1-x)**3 * (1 + 3 * x)
+    else:
+        return 0
+
+def del_Wendland_C2(x):
+    if x < 1:
+        return -15 * (1-x)**2 * x
+    else:
+        return 0
         
 
 def kernel(r, h, order, derivative = False):
     "Returns the Kernel function of order 'order' or its derivative"
     if not derivative:
         try:
-            return eval("%s(%g,%g)" %(order, abs(r), h))
+            return eval("%s(%g)" %(order, abs(r)/h))/h
         except NameError:
             print("%s(r, h) is not defined"%(order))
             exit()
     else:
         try:
-            return eval("del_%s(%g,%g)"%(order, abs(r), h))
+            return eval("del_%s(%g)"%(order, abs(r)/h))/h**2
         except NameError:
             print("del_%s(r, h) is not defined"%(order))
             exit()
