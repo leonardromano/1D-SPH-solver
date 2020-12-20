@@ -23,8 +23,10 @@ def assign_timestep_classes(timeBins, currentLevel):
     for particle in timeBins[currentLevel]:
         #make sure each particles courant timestep is up to date
         particle.update_timestep_criterion()
-        if particle.timestepCriterion < Dt/2**(currentLevel): #need to reduce timestep
-            k = ceil(log2(Dt/particle.timestepCriterion)) #determine the new timebin
+        if particle.timestepCriterion < Dt/2**(currentLevel): 
+            #need to reduce timestep
+            #determine the new timebin
+            k = ceil(log2(Dt/particle.timestepCriterion))
             particle.timeBin = k
             if k<=Ntimebins: #make sure the new timebin exists
                 #need to add particle to all bins with timestep >= necessary timestep

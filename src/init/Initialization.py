@@ -10,7 +10,8 @@ from src.data.int_conversion import convert_to_int_position, \
     find_minimum_offset_left, find_stepsize_right
 import numpy as np
 from Constants import NumberOfParticles, Ntimebins, TotalSideLength, \
-    ICSpecifier, ICfile, K, FacIntToCoord, BITS_FOR_POSITIONS, Noise_Var_Fac
+    ICSpecifier, ICfile, K, FacIntToCoord, BITS_FOR_POSITIONS, Noise_Var_Fac, \
+    DIM, NORM_COEFF
 from src.sph.density import density
 from sys import exit
 
@@ -42,16 +43,16 @@ def initialise_time_bins(particles):
 
 def get_initial_positions():
     "returns the initial positions according to the specified initial conditions"
-    initialPositions = np.zeros(NumberOfParticles, dtype = int)
-    if ICSpecifier == "shocktube":   #initialize positions for shocktube ICs
+    initialPositions = np.zeros((NumberOfParticles, DIM), dtype = int)
+    if ICSpecifier == "shocktube" and DIM == 1:   #initialize positions for shocktube ICs
         Nl = int(NumberOfParticles*0.8)
         dx0l = int(find_minimum_offset_left(Nl))
-        dxl = int((2**(BITS_FOR_POSITIONS-1) - 2*dx0l)//(Nl-1))
+        dxl = int(((1 << (BITS_FOR_POSITIONS-1)) - 2*dx0l)//(Nl-1))
         Nr = int(NumberOfParticles*0.2)
         dx0r = int(dx0l + Nl*dxl)
         dxr = int(find_stepsize_right(Nr, dx0r))
         for i in range(NumberOfParticles):
-            if i <= 0.8*NumberOfParticles-1:
+            if i <= 0.8 * NumberOfParticles-1:
                 initialPositions[i] += dx0l + i*dxl
                 #perturb with random displacement
                 initialPositions[i] += int(np.random.normal(0, dxl * Noise_Var_Fac))
@@ -59,7 +60,7 @@ def get_initial_positions():
                 initialPositions[i] += dx0r + int(i-0.8*NumberOfParticles)*dxr
                 #perturb with random displacement
                 initialPositions[i] += int(np.random.normal(0, dxr * Noise_Var_Fac))
-    elif ICSpecifier == "homogeneous":
+    elif ICSpecifier == "homogeneous" and DIM == 1:
         dx = int(2**BITS_FOR_POSITIONS // (NumberOfParticles+1))
         for i in range(NumberOfParticles):
             initialPositions[i] += (i+1)*dx
@@ -72,11 +73,13 @@ def get_initial_positions():
 
 def get_initial_velocities():
     "returns the initial velocities"
-    initialVelocities = np.zeros(NumberOfParticles)
-    if ICSpecifier == "shocktube":
-        initialVelocities += np.random.normal(0, Noise_Var_Fac, NumberOfParticles)
-    elif ICSpecifier == "homogeneous":
-        initialVelocities += np.random.normal(0, Noise_Var_Fac, NumberOfParticles)
+    initialVelocities = np.zeros((NumberOfParticles, DIM))
+    if ICSpecifier == "shocktube" and DIM == 1:
+        initialVelocities += np.random.normal(0, Noise_Var_Fac, \
+                                              (NumberOfParticles, DIM))
+    elif ICSpecifier == "homogeneous" and DIM == 1:
+        initialVelocities += np.random.normal(0, Noise_Var_Fac, \
+                                              (NumberOfParticles, DIM))
     else:
         print("The specified initial conditions cannot be found.")
         exit()
@@ -109,8 +112,10 @@ def initialize_from_file():
     particles = list()
     if file.size:
         for line in file:
-            particles.append(Particle(convert_to_int_position(line[1]), \
-                                      line[2], line[3], line[0]))
+            #line has to have format: 
+            #index, coordinates[DIM entries], velocities[DIM entries], entropy
+            particles.append(Particle(convert_to_int_position(line[1:1+DIM]), \
+                                      line[1+DIM:1+2*DIM], line[1+2*DIM], line[0]))
     else:
         print("Initial condition file cannot be found.")
         exit()
@@ -129,15 +134,16 @@ def initial_guess_hsml(particles, NgbTree):
         no = NgbTree.Father[i]
         while(2 * K * particles[i].mass > NgbTree.get_nodep(no).Mass):
             p = NgbTree.get_nodep(no).father
-            if p<0:
+            if p < 0:
                 break
             no = p
         length = 0
         if(NgbTree.get_nodep(no).level > 0):
-            length = 2**(BITS_FOR_POSITIONS - NgbTree.get_nodep(no).level) * FacIntToCoord
+            length = (1 << (BITS_FOR_POSITIONS - NgbTree.get_nodep(no).level)) * \
+                     FacIntToCoord
         else:
             length = TotalSideLength
 
-        particles[i].smoothingLength = K * particles[i].mass * length / \
-                                       NgbTree.get_nodep(no).Mass /2
-    
+        particles[i].smoothingLength =  length * \
+            (K * particles[i].mass / NgbTree.get_nodep(no).Mass \
+             / NORM_COEFF)**(1/DIM)

@@ -6,8 +6,10 @@ Created on Tue Oct  6 20:15:30 2020
 @author: leonard
 """
 from Constants import Mp, AdiabaticIndex, CourantParameter, Dt, \
-                      TimestepLimiter, FacIntToCoord
-from numpy import sqrt
+                      TimestepLimiter, DIM
+from src.data.int_conversion import convert_to_phys_position
+from numpy import sqrt, zeros
+from numpy.linalg import norm
 
 class Particle:
     "A class to store all the properties of a single particle"
@@ -15,8 +17,8 @@ class Particle:
         #dynamic quantities
         self.position = position
         self.velocity = velocity
-        self.velocity_ahead = 0
-        self.acceleration = 0
+        self.velocity_ahead = zeros(DIM, dtype = float)
+        self.acceleration = zeros(DIM, dtype = float)
         self.entropy = entropy
         self.entropy_ahead = 0
         self.entropyChange = 0
@@ -44,20 +46,29 @@ class Particle:
         if self.density > 0 and self.pressure > 0:
             self.soundspeed = sqrt(AdiabaticIndex*self.pressure/self.density)
         else:
-            print("pressure = %g\ndensity = %g\nacceleration = \
-%g\nvelocity = %g\nposition = %d"%(self.pressure, self.density, \
-    self.acceleration, self.velocity, self.position * FacIntToCoord))
+            output_string = "index = %d\npressure = %g\ndensity = %g\nacceleration = ("\
+                             %(self.index, self.pressure, self.density)
+            for a in self.acceleration:
+                output_string += " %g "%(a)
+            output_string += ")\nvelocity = ("
+            for v in self.velocity:
+                output_string += " %g "%(v)
+            output_string += ")\nposition = ("
+            for p in convert_to_phys_position(self.position):
+                output_string += " %g "%(p)
+            output_string += ")\n"
+            print(output_string)
     
     def update_timestep_criterion(self):
         cmax = 0
         for neighbor in self.neighbors:
             if neighbor[0].soundspeed > cmax:
                 cmax = neighbor[0].soundspeed
-        courantTimestep =  CourantParameter*2*\
+        courantTimestep =  CourantParameter * 2 *\
             self.smoothingLength/(self.soundspeed + cmax)
-        if abs(self.acceleration) >0:
-            kinematicTimestep = sqrt(2*TimestepLimiter*self.smoothingLength/\
-                                 abs(self.acceleration))
+        if norm(self.acceleration) > 0:
+            kinematicTimestep = sqrt(2 * TimestepLimiter * self.smoothingLength/\
+                                 norm(self.acceleration))
         else:
             kinematicTimestep = courantTimestep
         self.timestepCriterion = min(kinematicTimestep, courantTimestep)

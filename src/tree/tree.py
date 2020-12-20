@@ -5,7 +5,7 @@ Created on Fri Dec  4 17:19:12 2020
 
 @author: leonard
 """
-from Constants import BITS_FOR_POSITIONS, MAX_INT, TREE_NUM_BEFORE_NODESPLIT
+from Constants import BITS_FOR_POSITIONS, MAX_INT, TREE_NUM_BEFORE_NODESPLIT, DIM
 import numpy as np
 from sys import exit
 
@@ -13,7 +13,8 @@ class ngbnode():
     "A structure for node data"
     def __init__(self):
         #By default initialize the root node
-        self.center   =  2**(BITS_FOR_POSITIONS - 1)   #The center of the node
+        self.center   =  (1 << (BITS_FOR_POSITIONS - 1)) * \
+                         np.ones(DIM, dtype = int)     #The center of the node
         self.level    =  0                             #A useful way to store the sidelength of the node
         
         #refernce information to other nodes
@@ -69,9 +70,10 @@ class ngbtree():
         #initialise the SPH info
         mass      = 0.0
         not_empty = 0
-        halflen = 2**(BITS_FOR_POSITIONS - 1 - nop.level)
-        center_offset_min = halflen -1
-        center_offset_max = -halflen
+        halflen   = 1 << (BITS_FOR_POSITIONS - 1 - nop.level)
+        center_offset_min = np.ones(DIM, dtype = int) * (halflen -1)
+        
+        center_offset_max = -halflen * np.ones(DIM, dtype = int)
             
         p = nop.nextnode
         while p != nop.sibling:
@@ -84,10 +86,11 @@ class ngbtree():
                     mass += self.Tp[p].mass
                         
                     offset = self.Tp[p].position - nop.center
-                    if offset < center_offset_min:
-                        center_offset_min = offset
-                    if offset > center_offset_max:
-                        center_offset_max = offset
+                    for i in range(DIM):
+                        if offset[i] < center_offset_min[i]:
+                            center_offset_min[i] = offset[i]
+                        if offset[i] > center_offset_max[i]:
+                            center_offset_max[i] = offset[i]
                         
                     not_empty = 1
                     p = self.Nextnode[p]
@@ -101,11 +104,11 @@ class ngbtree():
                                                         - nop.center
                     offset_max = node.center_offset_max + node.center \
                                                         - nop.center
-                                                            
-                    if offset_min < center_offset_min:
-                        center_offset_min = offset_min
-                    if offset_max > center_offset_max:
-                        center_offset_max = offset_max
+                    for i in range(DIM):                                        
+                        if offset_min[i] < center_offset_min[i]:
+                            center_offset_min[i] = offset_min[i]
+                        if offset_max[i] > center_offset_max[i]:
+                            center_offset_max[i] = offset_max[i]
                         
                     not_empty |= node.notEmpty
                     p = node.sibling
@@ -134,27 +137,32 @@ class ngbtree():
                   %(BITS_FOR_POSITIONS))
             exit()
         mask = 1 << (BITS_FOR_POSITIONS - 1 - level)
-        shift = (BITS_FOR_POSITIONS - 1 - level)
-        centermask = ~(MAX_INT >> level) & MAX_INT
-        subcount  = [0, 0]
-        subnode   = [0, 0]
-        subintpos = [0, 0]
+        shift = np.zeros(DIM, dtype = int)
+        for i in range(DIM):
+            shift[i] += (BITS_FOR_POSITIONS - 1 - i - level)
+        
+        subcount  = np.zeros(1 << DIM, dtype = int)
+        subnode   = np.zeros(1 << DIM, dtype = int)
+        subintpos = np.zeros((1 << DIM, DIM), dtype=int)
         #determine the nodes in which the particles will be put
         for i in range(num):
             p = index_list[i][0]
             intpos = self.Tp[p].position
-            snode = (intpos & mask) >> shift
+            snode = 0
+            for i in range(DIM):
+                snode |= ((intpos[i] & mask) >> shift[i])
             subcount[snode] += 1
             subintpos[snode] = intpos
             index_list[i][1] = snode
-                
+        
+        centermask = ~(MAX_INT >> level) & MAX_INT
         centermask >>= 1
         centermask |= ~(MAX_INT >> 1) & MAX_INT
         mask >>= 1
             
         #create the daughter nodes
         nfreep_last = 0
-        for i in range(2):
+        for i in range(1 << DIM):
             if subcount[i] > TREE_NUM_BEFORE_NODESPLIT:
                 thnew = self.NextFreeNode
                 self.NextFreeNode +=1
@@ -167,7 +175,8 @@ class ngbtree():
                 nfreep = ngbnode()
                 nfreep.father = th
                 nfreep.level  = level + 1
-                nfreep.center = (subintpos[i] & centermask) | mask
+                for j in range(DIM):
+                    nfreep.center[j] = (subintpos[i,j] & centermask) | mask
                 self.Nodes.append(nfreep)
                 nfreep_last = nfreep
             
@@ -205,7 +214,7 @@ class ngbtree():
                 self.get_nodep(thnew).nextnode = sibling
             
         off = 0
-        for i in range(2):
+        for i in range(1 << DIM):
             if subcount[i] > TREE_NUM_BEFORE_NODESPLIT:
                 if subnode[i] < self.MaxPart + 1:
                     print("subnode[i]=%d < MaxPart=%d + 1" \

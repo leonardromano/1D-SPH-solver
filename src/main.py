@@ -11,14 +11,13 @@ from src.forces.forceCalculation import force_step
 import src.init.Initialization as init
 from src.sph.density import density
 from Constants import NumberOfTimesteps, Dt, StepsBetweenSnapshots, FinalTime
-from src.writing.writing import write_data, write_header
+from src.writing.writing import write_data
 from src.time_integration.timesteps import assign_timestep_classes, \
     get_active_time_bin
 from src.tree.tree import ngbtree
 
 def main():
     "This function initializes the simulation and contains the main loop"
-    write_header()
     #initialize particles and perform first force calculation
     particles = init.initialize_particles()
     timeBins = init.initialise_time_bins(particles)

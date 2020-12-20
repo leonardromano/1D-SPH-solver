@@ -5,38 +5,59 @@ Created on Wed Oct  7 15:16:08 2020
 
 @author: leonard
 """
+import h5py
+from numpy import zeros
+from src.data.int_conversion import convert_to_phys_position
 from Constants import Mp, AdiabaticIndex, NumberOfParticles, FinalTime, \
-    Viscosity, ViscositySoftening, K, CourantParameter, LeftBoundary, \
-    RightBoundary, Output, FacIntToCoord, BITS_FOR_POSITIONS
+    Viscosity, ViscositySoftening, K, CourantParameter, TotalSideLength, \
+    Output, DIM
 from sys import exit
 
-def write_data(particles, label, Timestamp):
-    "writes all the particle data in a text file. Eventually will be replaced by hdf5."
-    f = open("%s/sph_%d.txt"%(Output,label), "w")
+def write_data(particles, label, Time):
+    "writes all the particle data in a hdf5 file."
+    f = h5py.File("%s/sph_%d.hdf5"%(Output,label), "w")
     if f:
-        for particle in particles:
-            position = (particle.position - 2**(BITS_FOR_POSITIONS -1))*FacIntToCoord
-            f.write("%d %g %g %g %g %g %g %d\n" \
-                    %(particle.index, position, particle.velocity, \
-                      particle.entropy, particle.density, particle.pressure, \
-                      particle.smoothingLength, len(particle.neighbors)))
+        #first dump all the header info
+        header = f.create_group("Header")
+        h_att = header.attrs
+        h_att.create("NumPart", NumberOfParticles)
+        h_att.create("FinalTime", FinalTime)
+        h_att.create("Mass", Mp)
+        h_att.create("AdiabaticIndex", AdiabaticIndex)
+        h_att.create("Viscosity", Viscosity)
+        h_att.create("ViscositySoftening", ViscositySoftening)
+        h_att.create("Time", Time)
+        h_att.create("NumNeighbors", K)
+        h_att.create("CourantParameter", CourantParameter)
+        h_att.create("BoxSize", TotalSideLength)
+        h_att.create("NDIM", DIM)
+        #now make the data sets for the particle data
+        IDs        = zeros((NumberOfParticles), dtype = int)
+        positions  = zeros((NumberOfParticles, DIM), dtype = float)
+        velocities = zeros((NumberOfParticles, DIM), dtype = float)
+        entropies  = zeros((NumberOfParticles), dtype = float)
+        densities  = zeros((NumberOfParticles), dtype = float)
+        pressures  = zeros((NumberOfParticles), dtype = float)
+        hsml       = zeros((NumberOfParticles), dtype = float)
+        NN         = zeros((NumberOfParticles), dtype = int)
+        for i in range(len(particles)):
+            IDs[i]        += particles[i].index
+            positions[i]  += convert_to_phys_position(particles[i].position)
+            velocities[i] += particles[i].velocity
+            entropies[i]  += particles[i].entropy
+            densities[i]  += particles[i].density
+            pressures[i]  += particles[i].pressure
+            hsml[i]       += particles[i].smoothingLength
+            NN[i]         += len(particles[i].neighbors)
+        f.create_dataset("PartData/IDs", data = IDs,  dtype = "u4")
+        f.create_dataset("PartData/Coordinates", data = positions, dtype = "f4")
+        f.create_dataset("PartData/Velocity", data = velocities, dtype = "f4")
+        f.create_dataset("PartData/Entropy", data = entropies, dtype = "f4")
+        f.create_dataset("PartData/Density", data = densities, dtype = "f4")
+        f.create_dataset("PartData/Pressure", data = pressures, dtype = "f4")
+        f.create_dataset("PartData/SmoothingLength", data = hsml, dtype = "f4")
+        f.create_dataset("PartData/NumberOfNeighbors", data = NN, dtype = "f4")
         f.close()
     else:
         print("Results/sph_%d.txt could not be opened."%(label))
-        exit()
-
-def write_header():
-    "writes some header information in a text file."
-    f = open("%s/sph_header.txt"%(Output), "w")
-    if f:
-        f.write("Number of particles:%d\nFinal time:%g\nMass unit:%g\n\
-Adiabatic index:%g\nViscosity:%g\nViscosity Softening:%g\n\
-Average number of Neighbors:%g\nCourant parameter:%g\n\
-Left boundary:%g\nRight boundary:%g" \
-                %(NumberOfParticles, FinalTime, Mp, AdiabaticIndex, \
-                  Viscosity, ViscositySoftening, K, CourantParameter, \
-                  LeftBoundary, RightBoundary))
-        f.close()
-    else:
-        print("Results/sph_header.txt could not be opened.")
         exit()
