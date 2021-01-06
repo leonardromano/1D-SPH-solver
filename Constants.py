@@ -3,6 +3,8 @@
 """
 SPH simulation code by Leonard Romano
 """
+from Parameters import DIM, TotalMass, NPart, BoxSize, \
+    InitialTime, FinalTime, NTimesteps, Kernel
 from numpy.random import seed
 from src.data.math_utility import factorial
 from numpy import pi
@@ -22,53 +24,16 @@ MAX_INT = (1 << BITS_FOR_POSITIONS) - 1
 TREE_NUM_BEFORE_NODESPLIT = 3
 
 #General setup
-DIM       = 1                                   #number of spatial dimensions
-BoundaryPeriodic = [False]                      #list of DIM bools stating whether ith boundary is periodic or not
-TotalMass = 1.                                  #Sum of particle masses
-NumberOfParticles = 1440                        #Particle refinement
-Mp = TotalMass/NumberOfParticles                #Particle Mass
+Mpart = TotalMass/NPart               #Particle Mass
 
 #domain boundaries fixed to be [0, TotalSideLength]^DIM
-TotalSideLength = 2.                                  #Total size of spatial domain
-FacIntToCoord = TotalSideLength/(1 << BITS_FOR_POSITIONS) #Conversion factor for int32 coords to double coords
+FacIntToCoord = BoxSize/(1 << BITS_FOR_POSITIONS) #Conversion factor for int32 coords to double coords
 
 #Time parameters
-InitialTime = 0                                 #Starting Time
-FinalTime = 0.35                                #Final Time
-NumberOfTimesteps = 128                         #Time refinement
-Dt = (FinalTime - InitialTime)/NumberOfTimesteps#Maximum Timestep
-Ntimebins = 16                                  #Maximum depth of timestep hierarchy
+Dt = (FinalTime - InitialTime)/NTimesteps#Maximum Timestep
 
 #initial conditions                                
 seed(69420)                                     #Seed for random number generator
-Noise_Var_Fac = 1e-3                            #Noise variance (relative to particle spacing) for initial condition noise
-"""
-'ICSpecifier' specifies which ICs should be initialised. If ICs are 
-loaded from a file should be "from_file". This then ignores NumberOfParticles.
-Dh should then however be set to a sensible value. Also initial and final time
-should be set accordingly. The format of the IC file should be just as the
-output produced by this code. Note however that smoothing length, density, 
-pressure as well as number of neighbors aren't used for the ICs and thus can 
-be ignored. If one reads in ICs like this one should make sure that all physical
-parameters like total mass, adiabatic index etc. are consistent.
-"""
-ICSpecifier = "shocktube"                     #currently "shocktube" or "from_file"
-ICfile      = "../ICs/initial_condition.txt"    #/path/to/file.txt
-Output      = "../Results"                      #path to outputdirectory
-
-#SPH parameters
-AdiabaticIndex = 1.4                            #adiabatic Index gamma P~rho^gamma
-Kernel = "cubic"                                #SPH Kernel function new Kernel options can be defined in Kernel.py
-Viscosity = 1.                                  #Viscosity Parameter \alpha
-ViscositySoftening = 0.01                       #Softening parameter to prevent blow up of viscosity force
-K = 55                                          #Desired number of neighbors
-DK = 1                                          #Limit how much the actual number of neighbors may deviate from the desired value
-CourantParameter = 0.3                          #Courant parameter
-TimestepLimiter =  0.01                         #Limiter for kinematic timestep
-
-#Output Parameter
-StepsBetweenSnapshots = 8                       #Number of timesteps between Snapshots
-
 
 #######################################
 #Geometrical constants and normalization constants
@@ -79,6 +44,7 @@ if DIM % 2 == 0:
 else:
     NORM_COEFF = 2 * factorial((DIM - 1)//2) * (4 *pi)**((DIM-1)//2) / factorial(DIM)
     print("Set up NORM_COEFF = %g"%(NORM_COEFF))
+    
 #Kernel normalisation constant
 if Kernel == "cubic":
     if DIM == 1:

@@ -5,7 +5,7 @@ SPH simulation code by Leonard Romano
 """
 from src.main import main
 from time import time
-from Constants import NumberOfParticles, NumberOfTimesteps
+from Parameters import NPart, NTimesteps
 
 """
 This file is used to start the simulation. After specifying all the parameters
@@ -17,5 +17,4 @@ t0 = time()
 main()
 t1 = time()
 print("Needed %01.3f s (%01.3f min) in order to simulate %d timesteps \
-      for %d Particles." %(t1-t0, (t1-t0)/60, NumberOfTimesteps, \
-          NumberOfParticles))
+      for %d Particles." %(t1-t0, (t1-t0)/60, NTimesteps, NPart))

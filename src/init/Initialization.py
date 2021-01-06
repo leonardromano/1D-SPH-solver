@@ -5,15 +5,19 @@ Created on Tue Oct  6 20:52:07 2020
 
 @author: leonard
 """
-from src.data.Particle_Class import Particle
+import h5py
+import numpy as np
+from sys import exit
+
+from Constants import FacIntToCoord, BITS_FOR_POSITIONS, NORM_COEFF, Mp
+from Parameters import NPart, NTimebins, BoxSize, ICSpecifier, ICfile, \
+    DESNNGBS, Noise_Var_Fac, DIM
+
 from src.data.int_conversion import convert_to_int_position, \
     find_minimum_offset_left, find_stepsize_right
-import numpy as np
-from Constants import NumberOfParticles, Ntimebins, TotalSideLength, \
-    ICSpecifier, ICfile, K, FacIntToCoord, BITS_FOR_POSITIONS, Noise_Var_Fac, \
-    DIM, NORM_COEFF
+from src.data.Particle_Class import Particle
 from src.sph.density import density
-from sys import exit
+
 
 
 def initialize_particles():
@@ -25,7 +29,7 @@ def initialize_particles():
         initialVelocities = get_initial_velocities()
         initialEntropies = get_initial_entropies()
         particles = list()
-        for i in range(NumberOfParticles):
+        for i in range(NPart):
             particles.append(Particle(initialPositions[i], initialVelocities[i], \
                                      initialEntropies[i], i))
     return particles
@@ -36,36 +40,36 @@ def initialise_time_bins(particles):
     with list of particles
     """
     timeBins = dict()
-    for i in range(Ntimebins):
+    for i in range(NTimebins):
         timeBins[i] = list()
     timeBins[0] = particles
     return timeBins
 
 def get_initial_positions():
     "returns the initial positions according to the specified initial conditions"
-    initialPositions = np.zeros((NumberOfParticles, DIM), dtype = int)
+    initialPositions = np.zeros((NPart, DIM), dtype = int)
     if ICSpecifier == "shocktube" and DIM == 1:   #initialize positions for shocktube ICs
-        Nl = int(NumberOfParticles*0.8)
+        Nl = int(NPart*0.8)
         dx0l = int(find_minimum_offset_left(Nl))
         dxl = int(((1 << (BITS_FOR_POSITIONS-1)) - 2*dx0l)//(Nl-1))
-        Nr = int(NumberOfParticles*0.2)
+        Nr = int(NPart*0.2)
         dx0r = int(dx0l + Nl*dxl)
         dxr = int(find_stepsize_right(Nr, dx0r))
-        for i in range(NumberOfParticles):
-            if i <= 0.8 * NumberOfParticles-1:
+        for i in range(NPart):
+            if i <= 0.8 * NPart-1:
                 initialPositions[i] += dx0l + i*dxl
                 #perturb with random displacement
                 initialPositions[i] += int(np.random.normal(0, dxl * Noise_Var_Fac))
             else:
-                initialPositions[i] += dx0r + int(i-0.8*NumberOfParticles)*dxr
+                initialPositions[i] += dx0r + int(i-0.8*NPart)*dxr
                 #perturb with random displacement
                 initialPositions[i] += int(np.random.normal(0, dxr * Noise_Var_Fac))
     elif ICSpecifier == "homogeneous" and DIM == 1:
-        dx = int(2**BITS_FOR_POSITIONS // (NumberOfParticles+1))
-        for i in range(NumberOfParticles):
+        dx = int(2**BITS_FOR_POSITIONS // (NPart+1))
+        for i in range(NPart):
             initialPositions[i] += (i+1)*dx
             #perturb with random displacement
-            initialPositions[i] += int(np.random.normal(0, dx * Noise_Var_Fac))
+            initialPositions[i] += int(np.random.normal(0, dx * Noise_Var_Fac))      
     else:   #if the wanted ICs aren't defined stop
         print("The specified initial conditions cannot be found.")
         exit()
@@ -73,13 +77,11 @@ def get_initial_positions():
 
 def get_initial_velocities():
     "returns the initial velocities"
-    initialVelocities = np.zeros((NumberOfParticles, DIM))
+    initialVelocities = np.zeros((NPart, DIM))
     if ICSpecifier == "shocktube" and DIM == 1:
-        initialVelocities += np.random.normal(0, Noise_Var_Fac, \
-                                              (NumberOfParticles, DIM))
+        initialVelocities += np.random.normal(0, Noise_Var_Fac, (NPart, DIM))
     elif ICSpecifier == "homogeneous" and DIM == 1:
-        initialVelocities += np.random.normal(0, Noise_Var_Fac, \
-                                              (NumberOfParticles, DIM))
+        initialVelocities += np.random.normal(0, Noise_Var_Fac, (NPart, DIM))
     else:
         print("The specified initial conditions cannot be found.")
         exit()
@@ -87,15 +89,15 @@ def get_initial_velocities():
 
 def get_initial_entropies():
     "returns the initial entropy functions"
-    initialEntropies = np.zeros(NumberOfParticles)
+    initialEntropies = np.zeros(NPart)
     if ICSpecifier == "shocktube":
-        for i in range(NumberOfParticles):
-            if i<=0.8*NumberOfParticles-1:
+        for i in range(NPart):
+            if i<=0.8*NPart-1:
                 initialEntropies[i] += 1.352
             else:
                 initialEntropies[i] += 1.656
     elif ICSpecifier == "homogeneous":
-        for i in range(NumberOfParticles):
+        for i in range(NPart):
             initialEntropies[i] += 1.
     else:
         print("The specified initial conditions cannot be found.")
@@ -104,21 +106,20 @@ def get_initial_entropies():
 
 def initialize_from_file():
     "initializes the particles from data provided by a file"
-    file = np.loadtxt(ICfile)
-    if (NumberOfParticles != file.shape[0]):
+    file = h5py.File(ICfile, "r")
+    header = file["Header"].attrs
+    if (NPart != header["NumPart"]):
         print("NumberOfParticles = %d, expected: %d" \
-              %(file.shape[0], NumberOfParticles))
+              %(header["NumPart"], NPart))
         exit()
+    positions  = np.asarray(file["PartData/Coordinates"])
+    velocities = np.asarray(file["PartData/Velocity"]) 
+    entropies  = np.asarray(file["PartData/Entropy"])
     particles = list()
-    if file.size:
-        for line in file:
-            #line has to have format: 
-            #index, coordinates[DIM entries], velocities[DIM entries], entropy
-            particles.append(Particle(convert_to_int_position(line[1:1+DIM]), \
-                                      line[1+DIM:1+2*DIM], line[1+2*DIM], line[0]))
-    else:
-        print("Initial condition file cannot be found.")
-        exit()
+    for i in range(header["NumPart"]):
+        particles.append(Particle(convert_to_int_position(positions[i]), \
+                                  velocities[i], entropies[i], i))
+    file.close()
     return particles    
     
 def sph_quantities(particles, NgbTree):
@@ -132,7 +133,7 @@ def initial_guess_hsml(particles, NgbTree):
     "computes an initial guess for the smoothing lengths"
     for i in range(NgbTree.MaxPart):
         no = NgbTree.Father[i]
-        while(2 * K * particles[i].mass > NgbTree.get_nodep(no).Mass):
+        while(2 * DESNNGBS * Mp > NgbTree.get_nodep(no).Mass):
             p = NgbTree.get_nodep(no).father
             if p < 0:
                 break
@@ -140,10 +141,9 @@ def initial_guess_hsml(particles, NgbTree):
         length = 0
         if(NgbTree.get_nodep(no).level > 0):
             length = (1 << (BITS_FOR_POSITIONS - NgbTree.get_nodep(no).level)) * \
-                     FacIntToCoord
+                     FacIntToCoord.max()
         else:
-            length = TotalSideLength
+            length = BoxSize.max()
 
         particles[i].smoothingLength =  length * \
-            (K * particles[i].mass / NgbTree.get_nodep(no).Mass \
-             / NORM_COEFF)**(1/DIM)
+            (DESNNGBS * Mp / NgbTree.get_nodep(no).Mass / NORM_COEFF)**(1/DIM)

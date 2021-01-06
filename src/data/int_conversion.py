@@ -5,9 +5,11 @@ Created on Sun Nov  8 11:35:37 2020
 
 @author: leonard
 """
-from Constants import FacIntToCoord, BITS_FOR_POSITIONS, DIM, \
-    BoundaryPeriodic
-from numpy import zeros 
+from numpy import zeros
+
+from Constants import FacIntToCoord, BITS_FOR_POSITIONS
+from Parameters import DIM, Periodic
+ 
 
 def convert_to_int_position(position):
     """
@@ -16,14 +18,14 @@ def convert_to_int_position(position):
     """
     intpos = zeros(DIM, dtype = int)
     for i in range(DIM):
-        intpos[i] += int(position[i]/FacIntToCoord)
+        intpos[i] += int(position[i]/FacIntToCoord[i])
     return intpos
 
 def convert_to_phys_position(intpos):
     "converts an integer coordinate vector to a physical position vector"
     pos = zeros(DIM, dtype = float)
     for i in range(DIM):
-        pos[i] += intpos[i] * FacIntToCoord
+        pos[i] += intpos[i] * FacIntToCoord[i]
     return pos
 
 def find_minimum_offset_left(N):
@@ -42,7 +44,7 @@ def get_distance_vector(x, y):
     "returns the minimum distance vector taking into account periodic boundaries"
     dx = zeros(DIM, dtype = int)
     for i in range(DIM):
-        if BoundaryPeriodic[i]:
+        if Periodic[i]:
             if x[i] <= y[i]:
                 if abs(x[i]-y[i]) < (1 << BITS_FOR_POSITIONS) + x[i] - y[i]:
                     dx[i] += x[i] - y[i]

@@ -5,8 +5,11 @@ Created on Tue Oct  6 19:47:22 2020
 
 @author: leonard
 """
-from Constants import DIM, Kernel, NORM_FAC
 from sys import exit
+
+from Constants import NORM_FAC
+from Parameters import DIM, Kernel, DESNNGB
+
 """
 This file contains the implementation for the choice and evaluation of 
 smoothing kernels. The implementation is general enough so that different 
@@ -54,7 +57,12 @@ elif Kernel == "Wendland_C2":
                     return NORM_FAC * (1-x)**4 * (1 + 4 * x) * h**(-DIM)
                 else:
                     return 0 
-        
 else:
     print("Kernel function not defined!")
     exit()
+
+def bias_correction(h):
+    if DIM == 3 and Kernel == "Wendland_C2":
+        return -0.0294 * (DESNNGB * 0.01)**(-0.977) * NORM_FAC/h**3
+    else:
+        return 0.0

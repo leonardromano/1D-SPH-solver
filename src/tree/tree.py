@@ -5,9 +5,12 @@ Created on Fri Dec  4 17:19:12 2020
 
 @author: leonard
 """
-from Constants import BITS_FOR_POSITIONS, MAX_INT, TREE_NUM_BEFORE_NODESPLIT, DIM
 import numpy as np
 from sys import exit
+
+from Constants import BITS_FOR_POSITIONS, MAX_INT, \
+    TREE_NUM_BEFORE_NODESPLIT, Mpart
+from Parameters import DIM
 
 class ngbnode():
     "A structure for node data"
@@ -83,7 +86,7 @@ class ngbtree():
                     self.update_node_recursive(p)
                 if p < self.MaxPart:
                     #particle
-                    mass += self.Tp[p].mass
+                    mass += Mpart
                         
                     offset = self.Tp[p].position - nop.center
                     for i in range(DIM):

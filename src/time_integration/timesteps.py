@@ -6,9 +6,12 @@ Created on Wed Oct 14 12:22:49 2020
 @author: leonard
 """
 from math import ceil
-from Constants import Dt, Ntimebins
 from numpy import log2
 from sys import exit
+
+from Constants import Dt
+from Parameters import NTimebins
+
 
 def assign_timestep_classes(timeBins, currentLevel):
     """
@@ -17,7 +20,7 @@ def assign_timestep_classes(timeBins, currentLevel):
     """
     lowestPopulatedBin = currentLevel
     #create empty instances of higher time bins
-    for i in range(currentLevel+1, Ntimebins):
+    for i in range(currentLevel+1, NTimebins):
         timeBins[i] = list()
     #run over all active particles
     for particle in timeBins[currentLevel]:
@@ -28,7 +31,7 @@ def assign_timestep_classes(timeBins, currentLevel):
             #determine the new timebin
             k = ceil(log2(Dt/particle.timestepCriterion))
             particle.timeBin = k
-            if k<=Ntimebins: #make sure the new timebin exists
+            if k <= NTimebins: #make sure the new timebin exists
                 #need to add particle to all bins with timestep >= necessary timestep
                 for i in range(currentLevel+1, k):
                     timeBins[i].append(particle)
@@ -42,6 +45,6 @@ def assign_timestep_classes(timeBins, currentLevel):
         
 def get_active_time_bin(localTimeStep):
     "determine the current active time bin"
-    for level in range(Ntimebins):
+    for level in range(NTimebins):
         if (localTimeStep*2**level)%2 == 1:
             return level

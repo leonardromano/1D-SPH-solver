@@ -5,11 +5,14 @@ Created on Tue Oct  6 20:15:30 2020
 
 @author: leonard
 """
-from Constants import Mp, AdiabaticIndex, CourantParameter, Dt, \
-                      TimestepLimiter, DIM
-from src.data.int_conversion import convert_to_phys_position
 from numpy import sqrt, zeros
 from numpy.linalg import norm
+
+from Constants import Dt
+from Parameters import AdiabaticIndex, CourantParameter, TimestepLimiter, DIM                     
+                      
+from src.data.int_conversion import convert_to_phys_position
+
 
 class Particle:
     "A class to store all the properties of a single particle"
@@ -23,11 +26,10 @@ class Particle:
         self.entropy_ahead = 0
         self.entropyChange = 0
         #constants
-        self.mass = Mp
         self.index = index
         #SPH quantities
-        self.smoothingLength = 0
-        self.dhsmlDensityFactor = 0
+        self.hsml = 0
+        self.dhsmldrho = 0
         self.density = 0
         self.pressure = 0
         self.soundspeed = 0

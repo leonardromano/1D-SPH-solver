@@ -5,16 +5,17 @@ Created on Tue Oct  6 20:25:36 2020
 
 @author: leonard
 """
+from Constants import Dt
+from Parameters import NTimesteps, OutputFrequency, FinalTime
 
-from src.time_integration.Drift import Kick, Drift
-from src.forces.forceCalculation import force_step
 import src.init.Initialization as init
+from src.forces.forceCalculation import force_step
+from src.time_integration.Drift import Kick, Drift
 from src.sph.density import density
-from Constants import NumberOfTimesteps, Dt, StepsBetweenSnapshots, FinalTime
-from src.writing.writing import write_data
 from src.time_integration.timesteps import assign_timestep_classes, \
     get_active_time_bin
 from src.tree.tree import ngbtree
+from src.writing.writing import write_data
 
 def main():
     "This function initializes the simulation and contains the main loop"
@@ -27,11 +28,11 @@ def main():
     #assign particles to time bins
     lowestPopulatedTimeBin = assign_timestep_classes(timeBins, 0)
     #loop over all timesteps
-    for i in range(NumberOfTimesteps):
+    for i in range(NTimesteps):
         #Write a snapshot if required
-        if i%StepsBetweenSnapshots == 0:
-            print("writing Snapshot no. %d" %(i//StepsBetweenSnapshots))
-            write_data(particles, i//StepsBetweenSnapshots, i*Dt)
+        if i%OutputFrequency == 0:
+            print("writing Snapshot no. %d" %(i//OutputFrequency))
+            write_data(particles, i//OutputFrequency, i*Dt)
         #j is the local 'clock'
         j=0
         activeTimeBin = 0
@@ -60,4 +61,4 @@ def main():
             
             #repeat the previous steps
     #after we're done we want to write the final results in a snapshot
-    write_data(particles, NumberOfTimesteps//StepsBetweenSnapshots, FinalTime)
+    write_data(particles, NTimesteps//OutputFrequency, FinalTime)

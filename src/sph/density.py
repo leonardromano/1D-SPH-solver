@@ -5,31 +5,42 @@ Created on Thu Nov  5 11:19:30 2020
 
 @author: leonard
 """
-from Constants import K, DK, Mp, FacIntToCoord, BITS_FOR_POSITIONS, DIM, \
-                      BoundaryPeriodic, NORM_COEFF
-from src.sph.Kernel import kernel 
-from src.data.Particle_Class import Particle
-from src.data.int_conversion import get_distance_vector
-import numpy as np
+from numpy import zeros
+from numpy.linalg import norm
 from math import ceil
 from sys import exit
-    
-def sph_density_evaluate_particle_node_opening_criterion(particle, node):
+
+from Constants import Mpart, FacIntToCoord, BITS_FOR_POSITIONS, NORM_COEFF, MAX_INT
+from Parameters import DESNNGBS, NNGBSDEV, DIM, Periodic
+                      
+from src.sph.Kernel import kernel, bias_correction
+from src.data.Particle_Class import Particle
+from src.data.int_conversion import get_distance_vector, convert_to_phys_position
+
+###############################################################################
+#Treewalk related functions
+
+def evaluate_particle_node_opening_criterion(particle, node):
     """
     This function checks whether there is a spatial overlap between the 
     (rectangular) enclosing box of the particles contained in a node, 
     and the search region.
     """
     if node.level <= 0:
+        #always open the root node
         return 1
-    left  = get_distance_vector(node.center_offset_min + node.center, \
-                                particle.position \
-                                - ceil(particle.smoothingLength/FacIntToCoord))
-    right = get_distance_vector(node.center_offset_max + node.center, \
-                                particle.position \
-                                - ceil(particle.smoothingLength/FacIntToCoord))
+    
+    part_offset  = zeros(DIM, dtype = int)
+    part_offset += particle.position
     for i in range(DIM):
-        if left[i] > 2 * ceil(particle.smoothingLength/FacIntToCoord) and \
+        part_offset[i] -= ceil(particle.hsml/FacIntToCoord[i])
+        
+    left  = get_distance_vector(node.center_offset_min + node.center, \
+                                part_offset)
+    right = get_distance_vector(node.center_offset_max + node.center, \
+                                part_offset)
+    for i in range(DIM):
+        if left[i] > 2 * ceil(particle.hsml/FacIntToCoord[i]) and \
            right[i] > left[i]:
                return 0
     return 1
@@ -64,21 +75,20 @@ def sph_density_interact(particle, no, no_type, NgbTree, ahead = False):
         #we have a particle check whether it's a neighbor
         ngb = NgbTree.Tp[no]
         dx = get_distance_vector(particle.position, ngb.position)
-        if np.linalg.norm(dx) > ceil(particle.smoothingLength/FacIntToCoord):
+        if norm(convert_to_phys_position(dx)) > particle.hsml:
             return
         #compute relative velocity
         if ahead:
             vij = particle.velocity_ahead - ngb.velocity_ahead 
         else:
             vij = particle.velocity - ngb.velocity
-        
+            
         particle.neighbors.append([ngb, dx, vij])
     else:
         node = NgbTree.get_nodep(no)
         if not node.notEmpty:
             return
-        openflag = sph_density_evaluate_particle_node_opening_criterion(particle, node)
-        if openflag:
+        if evaluate_particle_node_opening_criterion(particle, node):
             sph_density_open_node(particle, node, NgbTree, ahead)
 
 def densities_determine(targetlist, NgbTree, particles, ahead = False):
@@ -89,18 +99,21 @@ def densities_determine(targetlist, NgbTree, particles, ahead = False):
     for i in targetlist:
         particle = particles[i]
         particle.density            = 0
-        particle.dhsmlDensityFactor = 0
+        particle.dhsmldrho = 0
         particle.neighbors = list()
         sph_density_interact(particle, NgbTree.MaxPart, "node", NgbTree, ahead)
         # If the particle is close to the wall we need to add ghosts
-        add_ghosts(particle, ceil(particle.smoothingLength/FacIntToCoord), ahead)
+        add_ghosts(particle, ahead)
         evaluate_kernel(particle)
         set_thermodynamic_variables(particle, ahead)
+        
+###############################################################################
+#main loop
 
 def density(particles, NgbTree, ahead = False):
     "For each particle compute density, smoothing length and thermodynamic variables"
-    Left = np.zeros(len(particles))
-    Right = np.zeros(len(particles))
+    Left = zeros(len(particles))
+    Right = zeros(len(particles))
     targetlist = list()
     for particle in particles:
         targetlist.append(particle.index)
@@ -112,9 +125,11 @@ def density(particles, NgbTree, ahead = False):
         for p in range(len(targetlist)):
             i = targetlist[p]
             particle = particles[i]
-            numberOfNeighbors = NORM_COEFF * particle.smoothingLength**(DIM) \
-                                * particle.density/Mp
-            if (abs(numberOfNeighbors-K)>DK):    
+            #do some postprocessing on density
+            finish_density_update(particle)
+            numberOfNeighbors = NORM_COEFF * particle.hsml**(DIM) \
+                                * particle.density/Mpart
+            if (abs(numberOfNeighbors-DESNNGBS)>NNGBSDEV):    
                 #check whether we're done
                 if Left[i]>0 and Right[i] >0:
                     if Right[i]-Left[i] < 10e-3 * Left[i]:
@@ -124,7 +139,7 @@ def density(particles, NgbTree, ahead = False):
                 npleft += 1
                 Left[i], Right[i] = update_bounds(Left[i], Right[i], \
                                                   numberOfNeighbors, \
-                                                  particle.smoothingLength)
+                                                  particle.hsml)
                 update_smoothing_length(Left[i], Right[i], \
                                         numberOfNeighbors, particle)
         targetlist = targetlist[:npleft]
@@ -132,11 +147,14 @@ def density(particles, NgbTree, ahead = False):
             break
     # Need to initialize the ghost particles thermodynamic quantities
     for particle in particles:
-        update_ghosts(particle, particles, ceil(particle.smoothingLength/FacIntToCoord), ahead)
-    
+        update_ghosts(particle, particles, ahead)
+
+###############################################################################
+#Bisection algorithm related functions    
+
 def update_bounds(lowerBound, upperBound, numberOfNeighbors, h):
     "Update the bounds for the smoothing length in the bisection algorithm"
-    if numberOfNeighbors < K-DK:
+    if numberOfNeighbors < DESNNGBS-NNGBSDEV:
         lowerBound = max(lowerBound, h)
     else:
         if upperBound != 0:
@@ -149,38 +167,41 @@ def update_bounds(lowerBound, upperBound, numberOfNeighbors, h):
 def update_smoothing_length(lowerBound, upperBound, numberOfNeighbors, particle):
     "Perform the bisection part of the bisection algorithm"
     if lowerBound >0 and upperBound >0:
-        particle.smoothingLength = ((lowerBound**3 + upperBound**3)/2)**(1/3)
+        particle.hsml = ((lowerBound**3 + upperBound**3)/2)**(1/3)
     else:
         if upperBound == 0 and lowerBound == 0:
             print("Upper and Lower bounds not updated!")
             exit()
             
         if upperBound == 0 and lowerBound>0:
-            if abs(numberOfNeighbors - K) < 0.5*K:
-                fac = 1-(numberOfNeighbors - K)/numberOfNeighbors/DIM*\
-                    particle.dhsmlDensityFactor
+            if abs(numberOfNeighbors - DESNNGBS) < 0.5*DESNNGBS:
+                fac = 1-(numberOfNeighbors - DESNNGBS)/numberOfNeighbors/DIM*\
+                    particle.dhsmldrho
                 if fac<1.26:
-                    particle.smoothingLength *=fac
+                    particle.hsml *=fac
                 else:
-                    particle.smoothingLength *=1.26
+                    particle.hsml *=1.26
             else:
-                particle.smoothingLength *=1.26
+                particle.hsml *=1.26
                     
         if upperBound > 0 and lowerBound  == 0:
-            if abs(numberOfNeighbors - K) < 0.5*K:
-                fac = 1-(numberOfNeighbors - K)/numberOfNeighbors/DIM*\
-                    particle.dhsmlDensityFactor
+            if abs(numberOfNeighbors - DESNNGBS) < 0.5*DESNNGBS:
+                fac = 1-(numberOfNeighbors - DESNNGBS)/numberOfNeighbors/DIM*\
+                    particle.dhsmldrho
                 if fac > 1/1.26:
-                    particle.smoothingLength *=fac
+                    particle.hsml *=fac
                 else:
-                    particle.smoothingLength /=1.26
+                    particle.hsml /=1.26
             else:
-                particle.smoothingLength /=1.26
-                
+                particle.hsml /=1.26
 
-def add_ghosts(particle, intHsml, ahead = False):
+###############################################################################
+#ghost particle related functions 
+
+def add_ghosts(particle, ahead = False):
     for i in range(DIM):
-        if not BoundaryPeriodic[i]:
+        if not Periodic[i]:
+            intHsml = ceil(particle.hsml/FacIntToCoord[i])
             dist_from_wall = get_distance_from_wall(particle, i)
             if dist_from_wall < intHsml:
                 #this particle is close to the wall
@@ -196,49 +217,21 @@ def add_ghosts(particle, intHsml, ahead = False):
                                append(mirror_particle(particle, neighbor, \
                                                       i, ahead))
 
-def update_ghosts(particle, particles, intHsml, ahead = False):
-    min_dist_from_wall = (1 << BITS_FOR_POSITIONS)
+def update_ghosts(particle, particles, ahead = False):
+    ghosts = 0
     for i in range(DIM):
         dist_from_wall = get_distance_from_wall(particle, i)
-        if dist_from_wall < min_dist_from_wall:
-            min_dist_from_wall = dist_from_wall
-    if min_dist_from_wall < intHsml:
+        if dist_from_wall < ceil(particle.hsml/FacIntToCoord[i]):
+            ghosts = 1
+    if ghosts:
         for [neighbor, intDistance, vij] in particle.neighbors:
             if neighbor.density == 0:
                 #we have a mirror particle with empty SPH data
-                neighbor.density = particles[neighbor.index].density
-                neighbor.dhsmlDensityFactor = particles[neighbor.index].dhsmlDensityFactor
+                neighbor.density   = particles[neighbor.index].density
+                neighbor.dhsmldrho = particles[neighbor.index].dhsmldrho
+                neighbor.hsml      = particles[neighbor.index].hsml
                 neighbor.update_pressure(ahead)
                 neighbor.update_soundspeed()
-                
-    
-def evaluate_kernel(particle):
-    "Perform the neighbor sum to compute density and SPH correction factor"
-    for [neighbor, intDistance, vij] in particle.neighbors:
-        #precompute the kernel and its derivative
-        dist = np.linalg.norm(intDistance) * FacIntToCoord
-        kern = kernel(dist/particle.smoothingLength, particle.smoothingLength)
-        dkern = kernel(dist/particle.smoothingLength, particle.smoothingLength, \
-                       True)
-        #add neighbor's contribution to density and dhsml
-        particle.density += neighbor.mass * kern
-        particle.dhsmlDensityFactor -= neighbor.mass * dist * dkern
-    
-    #now if we have more than one neighbor update the dhsml factor
-    if particle.dhsmlDensityFactor > 0:
-        particle.dhsmlDensityFactor = DIM * particle.density/particle.dhsmlDensityFactor
-        if particle.dhsmlDensityFactor > 10:
-            print("Number of neighbors = %d, index = %d"\
-              %(len(particle.neighbors), particle.index))
-    else:
-        print("Number of neighbors = %d, index = %d"\
-              %(len(particle.neighbors), particle.index))
-        particle.dhsmlDensityFactor = 1
-        
-def set_thermodynamic_variables(particle, ahead = False):
-    "Update the particle's pressure and sound speed"
-    particle.update_pressure(ahead)
-    particle.update_soundspeed()
 
 def get_distance_from_wall(particle, axis):
     "returns the distance from the nearest non-periodic boundary"
@@ -247,7 +240,7 @@ def get_distance_from_wall(particle, axis):
 
 def get_minimum_distance_from_wall(particles, axis):
     "Determines the minimum distance from the wall among a list of particles"
-    minimumDistanceFromWall = 1 << BITS_FOR_POSITIONS
+    minimumDistanceFromWall = MAX_INT
     for particle in particles:
         dist = get_distance_from_wall(particle[0], axis)
         if dist < minimumDistanceFromWall:
@@ -259,21 +252,20 @@ def mirror_particle(particle, neighbor, axis, ahead):
     creates an instance of a ghost particle mirroring a neighbor 
     of a particle close to the wall
     """
-    velocity = np.zeros(DIM, dtype = float)
+    velocity = zeros(DIM, dtype = float)
     if ahead: 
         velocity += 2 * particle.velocity_ahead - neighbor.velocity_ahead
         vij = particle.velocity_ahead - velocity
     else:
         velocity += 2 * particle.velocity - neighbor.velocity
         vij = particle.velocity - velocity
-    position  = np.zeros(DIM, dtype = int)
+    position  = zeros(DIM, dtype = int)
     position += neighbor.position
     position[axis] += 2*(particle.position[axis] - neighbor.position[axis])
     mirrorParticle = Particle(position, \
                               velocity, neighbor.entropy, neighbor.index)
     mirrorParticle.entropy = neighbor.entropy
     mirrorParticle.entropy_ahead = neighbor.entropy_ahead
-    mirrorParticle.smoothingLength = neighbor.smoothingLength
     return [mirrorParticle, particle.position - mirrorParticle.position, vij]
 
 def copy_list(oldList):
@@ -282,3 +274,31 @@ def copy_list(oldList):
     for item in oldList:
         newList.append(item)
     return newList
+
+###############################################################################
+#density calculation + thermodynamics    
+
+def evaluate_kernel(particle):
+    "Perform the neighbor sum to compute density and SPH correction factor"
+    for [neighbor, intDistance, vij] in particle.neighbors:
+        h = particle.hsml
+        r = norm(convert_to_phys_position(intDistance))
+        particle.density            += kernel(r/h, h)
+        particle.dhsmldrho -= r * kernel(r/h, h, True)
+
+def finish_density_update(particle):
+    "some final postprocessing steps in density calculation"
+    if particle.density > 0:
+        particle.density += bias_correction(particle.hsml)
+        #now if we have more than one neighbor update the dhsml factor
+        if particle.dhsmlDensityFactor > 0:
+            particle.dhsmldrho = DIM * particle.density/particle.dhsmldrho
+        else:
+            particle.dhsmldrho = 1
+        particle.density *= Mpart
+
+def set_thermodynamic_variables(particle, ahead = False):
+    "Update the particle's pressure and sound speed"
+    particle.update_pressure(ahead)
+    particle.update_soundspeed()
+
